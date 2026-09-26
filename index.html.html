@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gerador de Apostila</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#fafafa; --ink:#171717; --ink-soft:#6b6b6b;
+  --line:#e2e2e2; --card:#ffffff;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#121212; --ink:#f2f2f2; --ink-soft:#9a9a9a;
+    --line:#2c2c2c; --card:#1b1b1b;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#121212; --ink:#f2f2f2; --ink-soft:#9a9a9a;
+  --line:#2c2c2c; --card:#1b1b1b;
+}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:'Inter',sans-serif; line-height:1.5;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+header{padding:18px 20px 6px; text-align:center}
+header h1{font-family:'Fraunces',serif; font-weight:600; font-size:1.5rem; margin:0 0 2px}
+header p{color:var(--ink-soft); margin:0; font-size:.85rem}
+.wrap{max-width:1080px; margin:0 auto; padding:0 16px 40px}
+.top-grid{display:grid; grid-template-columns:1fr 1fr; gap:16px; align-items:start}
+@media (max-width:760px){ .top-grid{grid-template-columns:1fr} }
+.card{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; margin-top:16px}
+.top-grid .card{margin-top:0}
+.card h2{font-family:'Fraunces',serif; font-size:1.05rem; margin:0 0 10px; font-weight:600; color:var(--ink)}
+label{display:block; font-size:.8rem; color:var(--ink-soft); margin:9px 0 3px}
+input[type=text], input[type=url], input[type=password], select, textarea{
+  width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:7px;
+  background:var(--paper); color:var(--ink); font-family:'Inter',sans-serif; font-size:.92rem;
+}
+textarea{min-height:220px; resize:vertical; font-family:'Inter',Arial,sans-serif; line-height:1.55; font-size:.95rem}
+.row{display:flex; gap:10px; flex-wrap:wrap}
+.row > div{flex:1; min-width:110px}
+button{
+  cursor:pointer; border:none; border-radius:7px; padding:10px 16px; font-size:.9rem; font-weight:600;
+  background:var(--ink); color:var(--paper); font-family:'Inter',sans-serif;
+}
+button.secondary{background:transparent; color:var(--ink); border:1px solid var(--ink)}
+button.ghost{background:transparent; color:var(--ink-soft); border:1px solid var(--line); padding:6px 10px; font-weight:500}
+@media (min-width:1100px){ body.filemode .wrap{margin:0 auto 0 400px} }
+button.tiny{padding:4px 8px; font-size:.72rem; font-weight:500}
+button:disabled{opacity:.45; cursor:not-allowed}
+a.fallback{font-size:.85rem; color:var(--ink)}
+.btnrow{display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; align-items:center}
+.player-box{margin-top:14px; border-radius:8px; overflow:hidden; background:#000; aspect-ratio:16/9; display:none}
+.player-box.active{display:block}
+.player-box.ratio-vertical{aspect-ratio:auto; height:420px; max-width:260px; margin-left:auto; margin-right:auto}
+.player-box.ratio-audio{aspect-ratio:auto; height:160px; background:transparent}
+.player-box iframe{width:100%; height:100%; border:0}
+.hint{font-size:.78rem;color:var(--ink-soft);margin-top:8px}
+.item{border:1px solid var(--line); border-radius:8px; padding:14px; margin-top:12px; background:var(--paper)}
+.item h3{font-family:'Fraunces',serif; margin:0 0 2px; font-size:1.05rem}
+.item .meta{color:var(--ink-soft); font-size:.8rem; margin-bottom:8px}
+.item .letra{white-space:pre-wrap; font-family:'Inter',Arial,sans-serif; line-height:1.6}
+.item .actions{margin-top:10px; display:flex; gap:8px}
+.empty{color:var(--ink-soft); font-size:.9rem; text-align:center; padding:20px 0}
+.count{font-size:.85rem; color:var(--ink-soft)}
+#lista{max-height:340px; overflow-y:auto; padding-right:4px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Gerador de Apostila</h1>
+  <p>Ouça o vídeo (inteiro ou um trecho), escreva a letra e monte o PDF final</p>
+</header>
+
+<div class="wrap">
+
+  <div class="top-grid">
+  <div class="card">
+    <h2>1. Vídeo</h2>
+    <label for="ytlink">Link (YouTube, TikTok, Instagram ou Spotify)</label>
+    <input type="url" id="ytlink" placeholder="Cole aqui o link do vídeo/áudio">
+    <div class="row">
+      <div>
+        <label for="tstart">Início (opcional, mm:ss) — só funciona no YouTube</label>
+        <input type="text" id="tstart" placeholder="deixe em branco p/ tocar do começo">
+      </div>
+      <div>
+        <label for="tend">Fim (opcional, mm:ss) — só funciona no YouTube</label>
+        <input type="text" id="tend" placeholder="deixe em branco p/ tocar até o fim">
+      </div>
+    </div>
+    <div class="btnrow">
+      <button id="btnPlay">▶ Tocar</button>
+      <button id="btnRepeat" class="secondary" disabled>🔁 Repetir do início</button>
+      <a id="fallbackLink" class="fallback" href="#" target="_blank" rel="noopener noreferrer" style="display:none">Abrir no site original ↗</a>
+    </div>
+    <p class="hint" id="fileNote" style="display:none">Se o vídeo do YouTube não tocar aqui (erro 153), use o link "Abrir no site original" abaixo do player.</p>
+    <div class="player-box" id="playerBox"><iframe id="ytFrame" allow="autoplay; encrypted-media" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
+    <p class="hint">Marcar início/fim só é possível no YouTube — TikTok, Instagram e Spotify tocam o conteúdo inteiro (use os controles do próprio player pra avançar/voltar). Se aparecer "indisponível" ou conteúdo bloqueado dentro do player, é porque o dono do conteúdo desativou a incorporação (embed), ou o post é privado — isso é uma restrição da plataforma que nenhum app consegue contornar. Nesses casos use "Abrir no site original" para ouvir numa aba separada e transcrever aqui do lado.</p>
+  </div>
+
+  <div class="card">
+    <h2>2. Transcrição</h2>
+    <label for="titulo">Título</label>
+    <input type="text" id="titulo" placeholder="Nome">
+    <div class="row">
+      <div>
+        <label for="autor">Compositor (opcional)</label>
+        <input type="text" id="autor" placeholder="Deixe em branco se não souber">
+      </div>
+      <div>
+        <label for="toque">Toque (opcional)</label>
+        <input type="text" id="toque" placeholder="Ex.: ritmo/andamento">
+      </div>
+    </div>
+    <label for="linha">Linha (opcional)</label>
+    <input type="text" id="linha" placeholder="Ex.: Exu, Caboclo, Baiano...">
+    <details id="cfgBox" style="margin-top:12px"><summary class="hint" style="cursor:pointer;margin:0">⚙ Configurar transcrição por IA</summary>
+      <label for="apiKey">Chave da API Supadata (grátis: 100 créditos/mês em <a href="https://dash.supadata.ai?plan=free" target="_blank" rel="noopener noreferrer" style="color:var(--ink);text-decoration:underline">dash.supadata.ai ↗</a>)</label>
+      <input type="password" id="apiKey" placeholder="Cole a chave — fica só neste navegador" autocomplete="off">
+      <label for="aiMode">Modo</label>
+      <select id="aiMode"><option value="generate">IA ouve o áudio (recomendado p/ música · 2 créditos/min)</option><option value="auto">Legenda do YouTube se existir, senão IA</option></select>
+      <label for="groqKey">Chave da API Groq — para gravar/enviar áudio (grátis, sem cartão: <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" style="color:var(--ink);text-decoration:underline">console.groq.com ↗</a>)</label>
+      <input type="password" id="groqKey" placeholder="Cole a chave Groq — fica só neste navegador" autocomplete="off">
+      <label style="display:flex;gap:6px;align-items:center;cursor:pointer;margin-top:10px"><input type="checkbox" id="caps" checked> Transcrição da IA em MAIÚSCULAS</label>
+    </details>
+    <details id="dictBox" style="margin-top:12px"><summary class="hint" style="cursor:pointer;margin:0">📖 Dicionário <label style="display:inline-flex;gap:5px;align-items:center;margin:0 0 0 10px;cursor:pointer;color:var(--ink)"><input type="checkbox" id="dictOn" checked> Corrigir automaticamente</label></summary>
+      <p class="hint">Digite só as palavras <b>certas</b> (separe por vírgula ou por linha): a página troca sozinha as escritas parecidas e pergunta nos casos duvidosos. Para casos especiais, use também <b>errado = certo</b>.</p>
+      <textarea id="dict" style="min-height:90px" placeholder="Xangô, Yansã, Laroyê, Saravá&#10;Oxóssi, Obaluaê&#10;la roie = Laroyê"></textarea>
+      <div class="btnrow"><button id="btnDict" class="ghost">Aplicar na letra agora</button></div>
+    </details>
+    <div class="btnrow"><button id="btnAI">✨ Transcrever com IA</button><span class="hint" id="aiStatus" style="margin:0"></span></div>
+    <div class="btnrow"><button id="btnRec" class="secondary">🎤 Gravar minha voz</button><button id="btnFile" class="secondary">📁 Enviar áudio</button><input type="file" id="audioFile" accept="audio/*,video/*" hidden><span class="hint" id="recStatus" style="margin:0"></span></div>
+    <label for="letra">Letra</label>
+    <textarea id="letra" placeholder="Digite aqui enquanto ouve o vídeo..."></textarea>
+    <div class="btnrow">
+      <button id="btnSalvar">Salvar nesta lista</button>
+      <button id="btnLimpar" class="ghost">Limpar campos</button><button id="btnCaps" class="ghost">Aa → AA</button>
+    </div>
+    <div id="sugBox" class="hint" style="display:none"></div>
+  </div>
+  </div>
+
+  <div class="card">
+    <h2>3. Itens salvos <span class="count" id="itemCount"></span></h2>
+    <p class="hint" style="margin-top:-8px;margin-bottom:12px">Tudo aqui fica salvo automaticamente neste navegador — pode fechar o programa e continuar depois, nada some sozinho.</p>
+    <div class="row">
+      <div>
+        <label for="filtroLinha">Filtrar por linha</label>
+        <select id="filtroLinha"></select>
+      </div>
+    </div>
+    <div class="btnrow">
+      <button id="btnSelTodos" class="ghost">Selecionar todos (filtro atual)</button>
+      <button id="btnSelLimpar" class="ghost">Limpar seleção</button>
+    </div>
+    <div id="lista"><div class="empty">Nada salvo ainda.</div></div>
+    <div class="row"><div><label for="ordem">Ordem no PDF</label><select id="ordem"><option value="titulo" selected>Título (A–Z)</option><option value="">Como foi salvo</option><option value="linha">Linha, depois título</option></select></div></div>
+    <label for="capaTitulo">Título da capa (opcional)</label>
+    <input type="text" id="capaTitulo" placeholder="Ex.: Pontos de Exu">
+    <p class="hint" style="margin-top:6px">O PDF sai com os itens marcados com a caixinha. Se nada estiver marcado, sai com tudo que está sendo mostrado no filtro atual.</p>
+    <div class="btnrow">
+      <button id="btnPDF">📄 Gerar PDF (2 colunas)</button>
+      <button id="btnClearAll" class="ghost">Apagar tudo</button>
+      <span class="btnrow" style="margin:0 0 0 auto; gap:6px"><button id="btnExport" class="ghost tiny" title="Salvar backup (.json)">⬇ Backup</button><button id="btnImport" class="ghost tiny" title="Restaurar backup (.json)">⬆ Restaurar</button><input type="file" id="fileImport" accept=".json,application/json" hidden></span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let items = [];
+let editingIndex = null;
+let aiOriginal = '';
+let selectedSet = new Set();
+
+try{
+  const saved = localStorage.getItem('cancioneiro_items');
+  if(saved) items = JSON.parse(saved);
+}catch(e){}
+
+function persist(){
+  try{ localStorage.setItem('cancioneiro_items', JSON.stringify(items)); }catch(e){}
+}
+
+function toSeconds(str){
+  if(!str || !str.trim()) return null;
+  const parts = str.trim().split(':').map(p=>parseInt(p,10)||0);
+  if(parts.length===2) return parts[0]*60+parts[1];
+  if(parts.length===3) return parts[0]*3600+parts[1]*60+parts[2];
+  return parseInt(str,10)||0;
+}
+
+function extractId(url){
+  const m = url.match(/(?:youtu\.be\/|v=|embed\/|shorts\/|live\/)([A-Za-z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
+
+function detectPlatform(url){
+  if(/youtu\.be|youtube\.com/.test(url)) return 'youtube';
+  if(/tiktok\.com/.test(url)) return 'tiktok';
+  if(/instagram\.com/.test(url)) return 'instagram';
+  if(/open\.spotify\.com/.test(url)) return 'spotify';
+  return null;
+}
+
+function buildEmbed(platform, url, start, end){
+  if(platform === 'youtube'){
+    const id = extractId(url);
+    if(!id) return null;
+    let src = `https://www.youtube.com/embed/${id}?autoplay=1&rel=0&playsinline=1${location.protocol.startsWith('http') ? '&origin='+encodeURIComponent(location.origin) : ''}`;
+    if(start !== null) src += `&start=${start}`;
+    if(end !== null) src += `&end=${end}`;
+    return { src, ratio:'video' };
+  }
+  if(platform === 'tiktok'){
+    const m = url.match(/video\/(\d+)/);
+    if(!m) return null;
+    return { src:`https://www.tiktok.com/embed/v2/${m[1]}`, ratio:'vertical' };
+  }
+  if(platform === 'instagram'){
+    const m = url.match(/instagram\.com\/(p|reel|reels)\/([A-Za-z0-9_-]+)/);
+    if(!m) return null;
+    const type = m[1] === 'reels' ? 'reel' : m[1];
+    return { src:`https://www.instagram.com/${type}/${m[2]}/embed/`, ratio:'vertical' };
+  }
+  if(platform === 'spotify'){
+    const m = url.match(/open\.spotify\.com\/(?:intl-[a-z-]+\/)?(track|episode|album|playlist)\/([A-Za-z0-9]+)/);
+    if(!m) return null;
+    return { src:`https://open.spotify.com/embed/${m[1]}/${m[2]}?autoplay=1`, ratio:'audio' };
+  }
+  return null;
+}
+
+function loadSegment(){
+  const url = $('ytlink').value.trim();
+  const platform = detectPlatform(url);
+  if(!platform){ alert('Cole um link do YouTube, TikTok, Instagram ou Spotify.'); return; }
+  const start = platform === 'youtube' ? toSeconds($('tstart').value) : null;
+  const end = platform === 'youtube' ? toSeconds($('tend').value) : null;
+  const embed = buildEmbed(platform, url, start, end);
+  if(!embed){ alert('Não consegui identificar o conteúdo nesse link. (Links curtos do TikTok, tipo vm.tiktok.com, não funcionam — abra o vídeo e copie o endereço completo.)'); return; }
+  $('ytFrame').src = '';
+  setTimeout(()=>{ $('ytFrame').src = embed.src; }, 30);
+  const box = $('playerBox');
+  box.classList.remove('ratio-vertical','ratio-audio');
+  if(embed.ratio === 'vertical') box.classList.add('ratio-vertical');
+  if(embed.ratio === 'audio') box.classList.add('ratio-audio');
+  box.classList.add('active');
+  $('btnRepeat').disabled = false;
+  $('fallbackLink').style.display = 'inline';
+  $('fallbackLink').href = url;
+}
+
+$('btnPlay').addEventListener('click', loadSegment);
+$('btnRepeat').addEventListener('click', loadSegment);
+
+function linhaKey(it){ return it.linha && it.linha.trim() ? it.linha.trim().replace(/\s+/g,' ').toLocaleLowerCase('pt-BR').replace(/(^|[\s-])(\p{L})/gu,(m,a,b)=>a+b.toLocaleUpperCase('pt-BR')) : '(sem linha)'; }
+
+function populateFiltro(){
+  const sel = $('filtroLinha');
+  const atual = sel.value;
+  const linhas = [...new Set(items.map(linhaKey))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  sel.innerHTML = '<option value="">Todas as linhas (' + items.length + ')</option>' +
+    linhas.map(l=>{
+      const n = items.filter(it=>linhaKey(it)===l).length;
+      return `<option value="${escapeHtml(l)}">${escapeHtml(l)} (${n})</option>`;
+    }).join('');
+  if(linhas.includes(atual)) sel.value = atual;
+}
+
+function filteredIndexes(){
+  const f = $('filtroLinha').value;
+  return items.map((it,i)=>i).filter(i => !f || linhaKey(items[i]) === f);
+}
+
+function renderList(){
+  populateFiltro();
+  const idxs = filteredIndexes();
+  const box = $('lista');
+  $('itemCount').textContent = items.length ? `(${items.length})` : '';
+  if(idxs.length===0){ box.innerHTML = '<div class="empty">Nada aqui ainda.</div>'; return; }
+  box.innerHTML = idxs.map(i=>{
+    const it = items[i];
+    const metaParts = [];
+    metaParts.push(it.autor ? 'Compositor: '+escapeHtml(it.autor) : 'Compositor não informado');
+    if(it.toque) metaParts.push('Toque: '+escapeHtml(it.toque));
+    metaParts.push('Linha: '+escapeHtml(linhaKey(it)));
+    const checked = selectedSet.has(i) ? 'checked' : '';
+    return `
+    <div class="item">
+      <label style="display:flex; gap:8px; align-items:flex-start; cursor:pointer">
+        <input type="checkbox" data-idx="${i}" class="selChk" ${checked} style="margin-top:5px">
+        <span style="flex:1">
+          <h3>${escapeHtml(it.titulo || 'Sem título')}</h3>
+          <div class="meta">${metaParts.join(' · ')}</div>
+          <div class="letra">${escapeHtml(it.letra || '')}</div>
+        </span>
+      </label>
+      <div class="actions">
+        <button class="ghost" onclick="editItem(${i})">Editar</button>
+        <button class="ghost" onclick="removeItem(${i})">Remover</button>
+      </div>
+    </div>`;
+  }).join('');
+  box.querySelectorAll('.selChk').forEach(chk=>{
+    chk.addEventListener('change', ()=>{
+      const idx = parseInt(chk.dataset.idx,10);
+      if(chk.checked) selectedSet.add(idx); else selectedSet.delete(idx);
+    });
+  });
+}
+
+$('filtroLinha').addEventListener('change', renderList);
+$('btnSelTodos').addEventListener('click', ()=>{
+  filteredIndexes().forEach(i=>selectedSet.add(i));
+  renderList();
+});
+$('btnSelLimpar').addEventListener('click', ()=>{
+  selectedSet.clear();
+  renderList();
+});
+
+function escapeHtml(s){
+  return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+window.editItem = function(i){
+  aiOriginal = '';
+  const it = items[i];
+  $('titulo').value = it.titulo||'';
+  $('autor').value = it.autor||'';
+  $('toque').value = it.toque||'';
+  $('linha').value = it.linha||'';
+  $('letra').value = it.letra||'';
+  editingIndex = i;
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+window.removeItem = function(i){
+  items.splice(i,1);
+  if(editingIndex===i) editingIndex=null; else if(editingIndex!==null && editingIndex>i) editingIndex--;
+  const newSet = new Set();
+  selectedSet.forEach(idx=>{
+    if(idx < i) newSet.add(idx);
+    else if(idx > i) newSet.add(idx-1);
+  });
+  selectedSet = newSet;
+  persist();
+  renderList();
+}
+
+$('btnSalvar').addEventListener('click', ()=>{
+  const titulo = $('titulo').value.trim();
+  const letra = $('letra').value.trim();
+  if(!titulo && !letra){ alert('Preencha ao menos o título ou a letra antes de salvar.'); return; }
+  checkSuggestions(letra);
+  const data = { titulo, autor: $('autor').value.trim(), toque: $('toque').value.trim(), linha: $('linha').value.trim(), letra };
+  if(editingIndex !== null){ items[editingIndex] = data; editingIndex = null; }
+  else items.push(data);
+  persist();
+  renderList();
+  $('titulo').value=''; $('autor').value=''; $('toque').value=''; $('linha').value=''; $('letra').value='';
+});
+
+$('btnLimpar').addEventListener('click', ()=>{
+  aiOriginal = '';
+  $('titulo').value=''; $('autor').value=''; $('toque').value=''; $('linha').value=''; $('letra').value='';
+  editingIndex = null;
+});
+
+$('btnClearAll').addEventListener('click', ()=>{
+  if(items.length===0) return;
+  if(confirm('Apagar todos os itens salvos?')){ items=[]; selectedSet.clear(); persist(); renderList(); }
+});
+
+$('btnPDF').addEventListener('click', ()=>{
+  if(items.length===0){ alert('Salve ao menos um item antes de gerar o PDF.'); return; }
+  const idxsToUse = selectedSet.size > 0 ? [...selectedSet].sort((a,b)=>a-b) : filteredIndexes();
+  if(idxsToUse.length===0){ alert('Nenhum item para incluir no PDF com o filtro/seleção atual.'); return; }
+  const pdfItems = idxsToUse.map(i=>items[i]);
+  const ord = $('ordem').value, cmp = (a,b)=>(a||'').localeCompare(b||'','pt-BR');
+  if(ord==='titulo') pdfItems.sort((a,b)=>cmp(a.titulo,b.titulo));
+  if(ord==='linha') pdfItems.sort((a,b)=>cmp(linhaKey(a),linhaKey(b))||cmp(a.titulo,b.titulo));
+  try{
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({unit:'pt', format:'a4'});
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const margin = 40;
+    const gutter = 24;
+    const colW = (pageW - margin*2 - gutter) / 2;
+    const colX = [margin, margin + colW + gutter];
+    let col = 0;
+    let y = margin;
+
+    const capa = $('capaTitulo').value.trim();
+    if(capa){
+      doc.setFont('helvetica','bold'); doc.setFontSize(40); doc.setTextColor(20,20,20);
+      const capaLines = doc.splitTextToSize(capa, pageW - margin*2);
+      const totalH = capaLines.length * 48;
+      let cy = (pageH - totalH) / 2;
+      capaLines.forEach(line=>{
+        const w = doc.getTextWidth(line);
+        doc.text(line, (pageW - w) / 2, cy);
+        cy += 48;
+      });
+      doc.addPage();
+    }
+
+    function ensureSpace(needed){
+      if(y + needed > pageH - margin){
+        if(col === 0){ col = 1; y = margin; }
+        else { doc.addPage(); col = 0; y = margin; }
+      }
+    }
+
+    pdfItems.forEach((it)=>{
+      doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.setTextColor(20,20,20);
+      const titleLines = doc.splitTextToSize(it.titulo || 'Sem título', colW);
+      ensureSpace(titleLines.length*18 + 18 + 34); // título + meta + 2 linhas de letra juntos
+      titleLines.forEach(line=>{ doc.text(line, colX[col], y); y += 18; });
+
+      doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(110,110,110);
+      const metaParts = [];
+      metaParts.push(it.autor ? it.autor : 'Compositor não informado');
+      if(it.linha) metaParts.push('Linha: '+it.linha);
+      if(it.toque) metaParts.push('Toque: '+it.toque);
+      ensureSpace(14);
+      doc.text(metaParts.join('  ·  '), colX[col], y); y += 18;
+
+      doc.setFont('helvetica','normal'); doc.setFontSize(13); doc.setTextColor(20,20,20);
+      const lines = doc.splitTextToSize(it.letra || '(sem letra registrada)', colW);
+      lines.forEach(line=>{
+        ensureSpace(17);
+        doc.text(line, colX[col], y); y += 17;
+      });
+
+      y += 22; // space between items
+    });
+
+    const n = doc.getNumberOfPages(), first = capa ? 2 : 1;
+    for(let p=first;p<=n;p++){ doc.setPage(p); doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(140,140,140); doc.text(String(p-first+1), pageW/2, pageH-18, {align:'center'}); }
+    const w = window.open(doc.output('bloburl'), '_blank');
+    if(!w) doc.save('apostila.pdf');
+  }catch(err){
+    alert('Não consegui gerar o PDF: ' + err.message);
+  }
+});
+
+// ---------- Backup ----------
+$('btnExport').addEventListener('click', ()=>{
+  const b = new Blob([JSON.stringify({itens:items, dicionario:$('dict').value},null,1)], {type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'apostila-backup.json'; a.click();
+});
+$('btnImport').addEventListener('click', ()=>$('fileImport').click());
+$('fileImport').addEventListener('change', async ev=>{
+  const f = ev.target.files[0]; if(!f) return;
+  try{
+    const data = JSON.parse(await f.text());
+    const arr = Array.isArray(data) ? data : data.itens;
+    if(!Array.isArray(arr)) throw new Error('formato');
+    if(data.dicionario){ const cur = new Set($('dict').value.split('\n').map(l=>l.trim().toLowerCase())); const novos = data.dicionario.split('\n').map(l=>l.trim()).filter(l=>l && !cur.has(l.toLowerCase())); if(novos.length) $('dict').value = ($('dict').value.replace(/\s+$/,'') + '\n' + novos.join('\n')).trim(); $('dict').dispatchEvent(new Event('input')); }
+    items = items.concat(arr.filter(x=>x && typeof x==='object')); // só adiciona, nunca apaga
+    selectedSet.clear(); persist(); renderList();
+    alert(arr.length + ' itens adicionados.');
+  }catch(e){ alert('Arquivo de backup inválido.'); }
+  ev.target.value = '';
+});
+
+// ---------- Transcrição por IA (Supadata) ----------
+const SUPA = 'https://api.supadata.ai/v1/transcript';
+try{ const c = JSON.parse(localStorage.getItem('cancioneiro_cfg')||'{}'); $('apiKey').value = c.key||''; $('groqKey').value = c.groq||''; $('caps').checked = c.caps!==false; if(c.mode) $('aiMode').value = c.mode; }catch(e){}
+function saveCfg(){ try{ localStorage.setItem('cancioneiro_cfg', JSON.stringify({key:$('apiKey').value.trim(), groq:$('groqKey').value.trim(), caps:$('caps').checked, mode:$('aiMode').value})); }catch(e){} }
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+
+function cleanChunks(arr, s, e){
+  return arr.filter(c=>(s===null || c.offset/1000 >= s-1) && (e===null || c.offset/1000 <= e))
+    .map(c=>String(c.text||'').replace(/[♪♫]/g,'').trim())
+    .filter(t=>t && !/^[\[(].*[\])]$/.test(t)).join('\n');
+}
+async function getTranscript(url, mode, key, s, e, st, label){
+  const H = {'x-api-key':key}, t0 = Date.now();
+  const tick = setInterval(()=>{ st.textContent = label + ' ' + Math.round((Date.now()-t0)/1000) + ' s'; }, 1000);
+  st.textContent = label + ' 0 s';
+  try{
+    let r = await fetch(SUPA+'?url='+encodeURIComponent(url)+'&mode='+mode+'&lang=pt', {headers:H});
+    let d = await r.json().catch(()=>({}));
+    if(r.status===202 && d.jobId){
+      for(let i=0;i<240 && d.status!=='completed';i++){
+        await sleep(1000);
+        r = await fetch(SUPA+'/'+d.jobId, {headers:H}); d = await r.json().catch(()=>({}));
+        if(d.status==='failed') throw new Error((d.error && d.error.message) || d.error || 'a IA não conseguiu transcrever');
+      }
+      if(d.status!=='completed') throw new Error('demorou demais — tente de novo');
+    }else if(r.status===401||r.status===403){ throw new Error('chave inválida ou vídeo restrito (privado, +18 ou exige login)');
+    }else if(r.status===404){ throw new Error('vídeo não encontrado ou privado');
+    }else if(r.status===429){ const x = new Error('creditos'); x.credits = true; throw x;
+    }else if(r.status===206){ return '';
+    }else if(!r.ok){ throw new Error((d.error && d.error.message) || d.message || d.error || ('erro '+r.status)); }
+    if(typeof d.content==='string') return d.content;
+    return Array.isArray(d.content) ? cleanChunks(d.content, s, e) : '';
+  }finally{ clearInterval(tick); }
+}
+
+$('btnAI').addEventListener('click', async ()=>{
+  const url = $('ytlink').value.trim(), key = $('apiKey').value.trim(), st = $('aiStatus'), btn = $('btnAI');
+  if(!detectPlatform(url)){ alert('Cole primeiro um link do YouTube, TikTok ou Instagram no passo 1.'); return; }
+  if(!key){ $('cfgBox').open = true; alert('Cole sua chave da API em "Configurar transcrição por IA".'); return; }
+  if($('letra').value.trim() && !confirm('Já existe texto na letra. Substituir pela transcrição da IA?')) return;
+  saveCfg(); btn.disabled = true;
+  const s = toSeconds($('tstart').value), e = toSeconds($('tend').value);
+  try{
+    let txt = '';
+    if($('aiMode').value === 'auto'){
+      txt = await getTranscript(url,'native',key,s,e,st,'Buscando a legenda do YouTube…');
+      if(txt.split(/\s+/).filter(Boolean).length < 8)
+        txt = await getTranscript(url,'generate',key,s,e,st,'Legenda vazia ou só com [Música] — IA ouvindo o áudio…');
+    }else{
+      txt = await getTranscript(url,'generate',key,s,e,st,'IA ouvindo o áudio…');
+    }
+    if(!txt){ st.textContent = 'Nenhuma fala detectada nesse vídeo/trecho. Tente sem início/fim ou outro link.'; return; }
+    txt = runDict(txt);
+    if($('caps').checked) txt = txt.toLocaleUpperCase('pt-BR');
+    aiOriginal = txt; $('letra').value = txt;
+    st.textContent = 'Pronto! Agora ouça e corrija as falhas — palavras de terreiro costumam sair erradas.';
+  }catch(err){
+    if(err.credits) st.innerHTML = 'Acabaram os créditos do mês (ou muitas tentativas seguidas). <a href="https://dash.supadata.ai" target="_blank" rel="noopener noreferrer" style="color:var(--ink);text-decoration:underline">Abrir a Supadata ↗</a>';
+    else if(err instanceof TypeError) st.textContent = 'Não consegui contatar a API. Se esta página está hospedada dentro do Claude, o navegador bloqueia; abra o arquivo salvo no seu navegador ou hospede-o (ex.: GitHub Pages).';
+    else st.textContent = 'Falhou: ' + err.message;
+  }finally{ btn.disabled = false; }
+});
+
+// ---------- Dicionário de palavras ----------
+const norm = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+const VOG = {a:'aàáâãä', e:'eèéêë', i:'iìíîï', o:'oòóôõö', u:'uùúûü', c:'cç'};
+function keyPattern(s){
+  return norm(s.trim()).split('').map(ch=> /\s/.test(ch) ? '\\s+' : VOG[ch] ? '['+VOG[ch]+']' : ch.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('').replace(/(\\s\+)+/g,'\\s+');
+}
+function parseDict(){
+  return $('dict').value.split('\n').map(l=>{ const i=l.indexOf('='); return i<0 ? null : [l.slice(0,i).trim(), l.slice(i+1).trim()]; }).filter(p=>p && p[0] && p[1]);
+}
+function applyDict(t){
+  parseDict().sort((a,b)=>b[0].length-a[0].length).forEach(([a,b])=>{
+    try{ t = t.replace(new RegExp('(^|[^\\p{L}])'+keyPattern(a)+'(?![\\p{L}])','giu'), (m,pre)=>pre+b); }catch(e){}
+  });
+  return t;
+}
+try{ $('dict').value = localStorage.getItem('cancioneiro_dict') || ''; }catch(e){}
+$('dict').addEventListener('input', ()=>{ try{ localStorage.setItem('cancioneiro_dict', $('dict').value); }catch(e){} });
+$('btnDict').addEventListener('click', ()=>{ $('letra').value = runDict($('letra').value, true); });
+$('btnCaps').addEventListener('click', ()=>{ $('letra').value = $('letra').value.toLocaleUpperCase('pt-BR'); });
+
+function checkSuggestions(fin){
+  const orig = aiOriginal; aiOriginal = '';
+  const box = $('sugBox'); box.style.display = 'none'; box.innerHTML = '';
+  if(!orig || !fin || orig===fin) return;
+  const A = orig.split('\n'), B = fin.split('\n'), map = new Map();
+  if(A.length===B.length) A.forEach((la,i)=>{
+    const wa = la.trim().split(/\s+/), wb = B[i].trim().split(/\s+/);
+    if(wa.length!==wb.length) return;
+    wa.forEach((w,j)=>{ const x = w.replace(/[.,;:!?"]/g,''), y = wb[j].replace(/[.,;:!?"]/g,''); if(x && y && norm(x)!==norm(y)) map.set(norm(x),[x,y]); });
+  });
+  const known = new Set(parseDict().map(p=>norm(p[0])));
+  const pairs = [...map.values()].filter(p=>!known.has(norm(p[0])));
+  if(!pairs.length) return;
+  box.innerHTML = '<b>Palavras que você corrigiu — guardar no dicionário?</b>' + pairs.map((p,i)=>'<label style="display:flex;gap:6px;margin:4px 0"><input type="checkbox" class="sugChk" data-i="'+i+'" checked> '+escapeHtml(p[0])+' → '+escapeHtml(p[1])+'</label>').join('') + '<button id="btnSug" class="ghost tiny">Adicionar marcadas</button>';
+  box.style.display = 'block';
+  $('btnSug').onclick = ()=>{
+    const ok = pairs.filter((p,i)=>box.querySelector('.sugChk[data-i="'+i+'"]').checked);
+    if(ok.length){ $('dict').value = ($('dict').value.replace(/\s+$/,'') + '\n' + ok.map(p=>p[0]+' = '+p[1]).join('\n')).trim(); $('dict').dispatchEvent(new Event('input')); }
+    box.style.display = 'none';
+  };
+}
+
+// ---------- Dicionário só de palavras (troca por semelhança) ----------
+function fon(s){
+  s = norm(String(s).replace(/ç/gi,'s')).replace(/[^a-z]/g,'');
+  return s.replace(/ch|sh/g,'x').replace(/qu/g,'k').replace(/c(?=[eiy])/g,'s').replace(/c/g,'k').replace(/ph/g,'f').replace(/h/g,'')
+    .replace(/y/g,'i').replace(/w/g,'u').replace(/z/g,'s').replace(/(.)\1+/g,'$1').replace(/m$/,'n');
+}
+function lev(a,b){
+  const m=a.length, n=b.length; if(Math.abs(m-n)>2) return 9;
+  let p = Array.from({length:n+1},(_,j)=>j);
+  for(let i=1;i<=m;i++){ const c=[i]; for(let j=1;j<=n;j++) c[j]=Math.min(p[j]+1,c[j-1]+1,p[j-1]+(a[i-1]===b[j-1]?0:1)); p=c; }
+  return p[n];
+}
+function parseWords(){
+  const out = [];
+  $('dict').value.split('\n').forEach(l=>{ if(l.includes('=')) return; l.split(/[,;]/).forEach(w=>{ w=w.trim(); if(w.length>=2) out.push({txt:w, key:fon(w.replace(/\s+/g,''))}); }); });
+  return out.filter(e=>e.key.length>=3);
+}
+function smartApply(text){
+  const words = parseWords(), doubts = [];
+  if(!words.length) return {text, doubts};
+  const lines = text.split('\n').map(line=>{
+    const parts = line.split(/(\p{L}+)/u), idx = [];
+    for(let i=1;i<parts.length;i+=2) idx.push(i);
+    const res = parts.slice();
+    for(let w=0; w<idx.length;){
+      let best = null;
+      for(let n=1; n<=3 && w+n<=idx.length; n++){
+        if(n>1 && !/^[ \t]+$/.test(parts[idx[w+n-2]+1])) break;
+        const sel = idx.slice(w,w+n), letters = sel.map(i=>parts[i]).join('');
+        if(letters.length<3) continue;
+        const key = fon(letters);
+        for(const e of words){
+          const d = lev(key,e.key), L = Math.min(key.length,e.key.length);
+          const auto = d===0 || (d===1 && L>=6), ask = (d===1 && L>=5) || (d===2 && L>=8);
+          if((auto||ask) && (!best || d<best.d || (d===best.d && n<best.n)))
+            best = {d, n, e, auto, found: sel.map((i,j)=>parts[i]+(j<n-1?parts[i+1]:'')).join('')};
+        }
+      }
+      if(best){
+        if(best.auto){
+          if(best.found !== best.e.txt){ res[idx[w]] = best.e.txt; for(let j=1;j<best.n;j++){ res[idx[w+j]-1]=''; res[idx[w+j]]=''; } }
+        }else doubts.push([best.found, best.e.txt]);
+        w += best.n;
+      }else w++;
+    }
+    return res.join('');
+  });
+  return {text: lines.join('\n'), doubts};
+}
+function showDoubts(d){
+  const box = $('sugBox'); box.style.display = 'none'; box.innerHTML = '';
+  const seen = new Set(), list = d.filter(p=>{ const k = p.join('|').toLowerCase(); if(seen.has(k)) return false; seen.add(k); return true; });
+  if(!list.length) return;
+  box.innerHTML = '<b>Talvez sejam palavras do seu dicionário — trocar?</b>' + list.map((p,i)=>'<label style="display:flex;gap:6px;margin:4px 0"><input type="checkbox" class="dbtChk" data-i="'+i+'"> '+escapeHtml(p[0])+' → '+escapeHtml(p[1])+'</label>').join('') + '<button id="btnDbt" class="ghost tiny">Trocar marcadas</button>';
+  box.style.display = 'block';
+  $('btnDbt').onclick = ()=>{
+    let t = $('letra').value;
+    list.forEach((p,i)=>{
+      if(!box.querySelector('.dbtChk[data-i="'+i+'"]').checked) return;
+      const novo = $('caps').checked ? p[1].toLocaleUpperCase('pt-BR') : p[1];
+      t = t.replace(new RegExp('(?<![\\p{L}])'+p[0].replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?![\\p{L}])','giu'), ()=>novo);
+    });
+    $('letra').value = t; aiOriginal = t; box.style.display = 'none';
+  };
+}
+function runDict(t, force){
+  if(!force && !$('dictOn').checked){ showDoubts([]); return t; }
+  t = applyDict(t);
+  const r = smartApply(t); showDoubts(r.doubts);
+  return r.text;
+}
+
+// ---------- Gravar a voz / enviar áudio (Groq Whisper) ----------
+let rec = null, recChunks = [], recStream = null, recTick = null;
+function vocabPrompt(){
+  const v = !$('dictOn').checked ? '' : [...new Set([...parseWords().map(e=>e.txt), ...parseDict().map(p=>p[1])])].join(', ').slice(0,500);
+  return 'Ponto cantado de Umbanda, em português.' + (v ? ' Vocabulário: ' + v + '.' : '');
+}
+async function transcribeBlob(blob, name){
+  const key = $('groqKey').value.trim(), st = $('recStatus');
+  if(!key){ $('cfgBox').open = true; alert('Cole a chave da API Groq em "Configurar transcrição por IA" (é grátis).'); return; }
+  if(blob.size > 25*1024*1024){ st.textContent = 'Áudio maior que 25 MB (limite do plano grátis). Envie um trecho menor.'; return; }
+  if($('letra').value.trim() && !confirm('Já existe texto na letra. Substituir pela transcrição?')) { st.textContent = ''; return; }
+  saveCfg(); st.textContent = 'Transcrevendo…';
+  const fd = new FormData();
+  fd.append('file', blob, name); fd.append('model','whisper-large-v3'); fd.append('language','pt');
+  fd.append('response_format','verbose_json'); fd.append('temperature','0'); fd.append('prompt', vocabPrompt());
+  try{
+    const r = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {method:'POST', headers:{Authorization:'Bearer '+key}, body:fd});
+    const d = await r.json().catch(()=>({}));
+    if(r.status===401) throw new Error('chave Groq inválida');
+    if(r.status===429) throw new Error('limite grátis atingido (aguarde alguns minutos)');
+    if(!r.ok) throw new Error((d.error && d.error.message) || ('erro '+r.status));
+    let txt = Array.isArray(d.segments) && d.segments.length ? d.segments.map(s=>s.text.trim()).filter(Boolean).join('\n') : String(d.text||'').trim();
+    if(!txt){ st.textContent = 'Nenhuma fala detectada. Chegue mais perto do microfone e tente de novo.'; return; }
+    txt = runDict(txt);
+    if($('caps').checked) txt = txt.toLocaleUpperCase('pt-BR');
+    aiOriginal = txt; $('letra').value = txt;
+    st.textContent = 'Pronto! Ouça e corrija as falhas.';
+  }catch(err){
+    st.textContent = (err instanceof TypeError) ? 'Não consegui contatar a Groq. Confira a internet; se a página está hospedada dentro do Claude, o navegador bloqueia.' : 'Falhou: ' + err.message;
+  }
+}
+async function toggleRec(){
+  const st = $('recStatus'), btn = $('btnRec');
+  if(rec && rec.state==='recording'){ rec.stop(); return; }
+  if(!$('groqKey').value.trim()){ $('cfgBox').open = true; alert('Cole a chave da API Groq em "Configurar transcrição por IA" (é grátis).'); return; }
+  if(!navigator.mediaDevices || !window.MediaRecorder){ alert('Este navegador não permite gravar áudio.'); return; }
+  try{ recStream = await navigator.mediaDevices.getUserMedia({audio:true}); }
+  catch(e){ alert('Não consegui acessar o microfone. Libere a permissão no navegador e tente de novo.'); return; }
+  recChunks = []; rec = new MediaRecorder(recStream);
+  rec.ondataavailable = e=>{ if(e.data.size) recChunks.push(e.data); };
+  rec.onstop = ()=>{
+    clearInterval(recTick); recStream.getTracks().forEach(t=>t.stop()); btn.textContent = '🎤 Gravar minha voz';
+    const type = rec.mimeType || 'audio/webm', ext = type.includes('mp4') ? 'm4a' : type.includes('ogg') ? 'ogg' : 'webm';
+    transcribeBlob(new Blob(recChunks,{type}), 'gravacao.'+ext);
+  };
+  rec.start(); const t0 = Date.now(); btn.textContent = '⏹ Parar e transcrever';
+  recTick = setInterval(()=>{ st.textContent = 'Gravando… ' + Math.round((Date.now()-t0)/1000) + ' s'; }, 500);
+}
+$('btnRec').addEventListener('click', toggleRec);
+$('btnFile').addEventListener('click', ()=>$('audioFile').click());
+$('audioFile').addEventListener('change', e=>{ const f = e.target.files[0]; if(f) transcribeBlob(f, f.name); e.target.value = ''; });
+
+try{ $('dictOn').checked = localStorage.getItem('cancioneiro_dict_on') !== '0'; }catch(e){}
+$('dictOn').addEventListener('change', ()=>{ try{ localStorage.setItem('cancioneiro_dict_on', $('dictOn').checked ? '1' : '0'); }catch(e){} });
+$('caps').addEventListener('change', saveCfg);
+if(location.protocol === 'file:'){ $('fileNote').style.display = 'block'; }
+
+renderList();
+</script>
+</body>
+</html>
